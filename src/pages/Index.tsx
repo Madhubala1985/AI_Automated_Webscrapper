@@ -63,40 +63,48 @@ const Index = () => {
 
     setAnalyzing(true);
     
-    // Simulate analysis with realistic delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Simulate real analysis with cookie handling
+    toast.info('🍪 Checking for cookie banners...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Mock analysis result based on the example URL
+    toast.info('🔍 Analyzing page structure...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    toast.info('📊 Identifying company listings...');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Enhanced mock result with more realistic data
     const mockResult: AnalysisResult = {
       url,
       siteType: 'dynamic',
       cookieHandling: {
         required: true,
-        selector: '.cookie-banner button[data-accept]',
+        selector: '.cookie-banner button[data-accept], #accept-cookies, .cookie-consent button',
         method: 'click'
       },
       listingBehavior: {
         type: 'paginated',
-        containerSelector: '.search-results',
-        itemSelector: '.company-listing',
-        loadMoreSelector: '.pagination .next'
+        containerSelector: '.search-results, .directory-listings, .company-grid',
+        itemSelector: '.company-listing, .business-card, .company-item',
+        loadMoreSelector: '.pagination .next, .load-more, .next-page'
       },
       extractionTargets: {
-        companyName: '.company-name',
-        profileLink: '.company-link',
-        externalWebsite: '.website-link',
-        additionalFields: ['.industry', '.location', '.contact-info']
+        companyName: '.company-name, h3, .business-title',
+        profileLink: '.company-link, .profile-url, a[href*="company"]',
+        externalWebsite: '.website-link, .external-url, [href*="http"]:not([href*="' + new URL(url).hostname + '"])',
+        additionalFields: ['.industry', '.location', '.contact-info', '.phone', '.email']
       },
       challenges: [
         'Requires cookie acceptance',
         'Dynamic content loading',
         'Rate limiting detected',
-        'Pagination required'
+        'Pagination required',
+        'Some companies may have missing websites'
       ],
       domElements: [
         {
           selector: '.cookie-banner button[data-accept]',
-          purpose: 'Accept cookies',
+          purpose: 'Accept cookies automatically',
           type: 'click'
         },
         {
@@ -126,7 +134,7 @@ const Index = () => {
           action: 'Handle cookies',
           selector: '.cookie-banner button[data-accept]',
           waitTime: 2000,
-          description: 'Accept cookies if banner appears'
+          description: 'Automatically accept cookies if banner appears'
         },
         {
           step: 3,
@@ -143,14 +151,19 @@ const Index = () => {
         },
         {
           step: 5,
+          action: 'Visit external websites',
+          description: 'Visit each company website to extract contact details'
+        },
+        {
+          step: 6,
           action: 'Check pagination',
           selector: '.pagination .next',
           description: 'Check if next page exists and navigate'
         },
         {
-          step: 6,
+          step: 7,
           action: 'Repeat extraction',
-          description: 'Repeat steps 3-5 until all pages processed'
+          description: 'Repeat steps 3-6 until all pages processed'
         }
       ],
       recommendedTool: 'selenium',
@@ -160,7 +173,7 @@ const Index = () => {
 
     setResult(mockResult);
     setAnalyzing(false);
-    toast.success('Website analysis completed!');
+    toast.success('✅ Website analysis completed! Ready for lead generation.');
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -245,7 +258,7 @@ const Index = () => {
               </CardContent>
             </Card>
 
-            {/* Results Section */}
+            {/* Results Section - keep existing detailed analysis tabs */}
             {result && (
               <div className="space-y-6">
                 {/* Overview */}
@@ -291,7 +304,7 @@ const Index = () => {
                   </CardContent>
                 </Card>
 
-                {/* Detailed Analysis - keep existing tabs content exactly the same */}
+                {/* Keep existing detailed analysis tabs unchanged */}
                 <Tabs defaultValue="workflow" className="space-y-4">
                   <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="workflow">Workflow</TabsTrigger>
@@ -443,7 +456,7 @@ const Index = () => {
           </TabsContent>
 
           <TabsContent value="lead-generation">
-            <LeadGenerationWorkflow />
+            <LeadGenerationWorkflow analysisResult={result} />
           </TabsContent>
         </Tabs>
       </div>
