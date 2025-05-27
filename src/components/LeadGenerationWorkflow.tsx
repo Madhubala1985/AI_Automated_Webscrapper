@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,9 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Play, Pause, Settings, Mail, Users, Building, Globe, CheckCircle } from 'lucide-react';
+import { Download, Play, Pause, Settings, Mail, Users, Building, Globe, CheckCircle, Navigation } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompanyLead, ScrapingSession, EmailTemplate, EnrichmentConfig } from '../types/leadGeneration';
+import PaginationControls from './PaginationControls';
+import RealTimeExtractor from './RealTimeExtractor';
 
 interface AnalysisResult {
   url: string;
@@ -44,6 +45,9 @@ interface LeadGenerationWorkflowProps {
 
 const LeadGenerationWorkflow: React.FC<LeadGenerationWorkflowProps> = ({ analysisResult }) => {
   const [currentSession, setCurrentSession] = useState<ScrapingSession | null>(null);
+  const [allLeads, setAllLeads] = useState<CompanyLead[]>([]);
+  const [currentPageUrl, setCurrentPageUrl] = useState<string>('');
+  const [isExtracting, setIsExtracting] = useState(false);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>({
     subject: 'Partnership Opportunity with [Company Name]',
     baseContent: `Hello [Contact Person],
@@ -70,67 +74,47 @@ Best regards,
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  // Enhanced mock data for demonstration
-  const mockLeads: CompanyLead[] = [
-    {
-      id: '1',
-      companyName: 'TechCorp Solutions',
-      externalWebsite: 'https://techcorp.com',
-      contactPerson: 'John Smith',
-      role: 'CEO',
-      email: 'john.smith@techcorp.com',
-      phone: '+1 (555) 123-4567',
-      industry: 'Technology',
-      location: 'San Francisco, CA',
-      enrichedSource: true,
-      extractedFrom: analysisResult?.url || 'https://directory.example.com/techcorp',
-      lastUpdated: new Date(),
-      status: 'personalized'
-    },
-    {
-      id: '2',
-      companyName: 'GlobalTrade Inc',
-      externalWebsite: 'https://globaltrade.com',
-      contactPerson: 'Sarah Johnson',
-      role: 'VP Sales',
-      email: 'sarah.johnson@globaltrade.com',
-      industry: 'Import/Export',
-      location: 'New York, NY',
-      enrichedSource: true,
-      extractedFrom: analysisResult?.url || 'https://directory.example.com/globaltrade',
-      lastUpdated: new Date(),
-      status: 'personalized'
-    },
-    {
-      id: '3',
-      companyName: 'Marine Industries Ltd',
-      externalWebsite: 'https://marineindustries.co.uk',
-      contactPerson: 'David Wilson',
-      role: 'Operations Director',
-      email: 'david.wilson@marineindustries.co.uk',
-      phone: '+44 20 7123 4567',
-      industry: 'Marine Services',
-      location: 'London, UK',
-      enrichedSource: true,
-      extractedFrom: analysisResult?.url || 'https://directory.example.com/marine',
-      lastUpdated: new Date(),
-      status: 'enriched'
-    },
-    {
-      id: '4',
-      companyName: 'Financial Advisors Group',
-      externalWebsite: 'https://finadvgroup.com',
-      contactPerson: 'Emma Thompson',
-      role: 'Managing Partner',
-      email: 'emma.thompson@finadvgroup.com',
-      industry: 'Financial Services',
-      location: 'Edinburgh, UK',
-      enrichedSource: true,
-      extractedFrom: analysisResult?.url || 'https://directory.example.com/financial',
-      lastUpdated: new Date(),
-      status: 'extracted'
+  const handlePageChange = (url: string, page: number) => {
+    setCurrentPageUrl(url);
+    toast.info(`Ready to extract from page ${page}`);
+  };
+
+  const handlePageExtraction = async (url: string) => {
+    setIsExtracting(true);
+    toast.info('Starting page extraction...');
+  };
+
+  const handleLeadsExtracted = (newLeads: CompanyLead[]) => {
+    setAllLeads(prev => [...prev, ...newLeads]);
+    
+    // Update or create session
+    if (currentSession) {
+      const updatedSession = {
+        ...currentSession,
+        totalLeads: currentSession.totalLeads + newLeads.length,
+        successfulExtractions: currentSession.successfulExtractions + newLeads.length,
+        leads: [...currentSession.leads, ...newLeads],
+        endTime: new Date()
+      };
+      setCurrentSession(updatedSession);
+    } else {
+      const newSession: ScrapingSession = {
+        id: Date.now().toString(),
+        url: analysisResult?.url || currentPageUrl,
+        startTime: new Date(),
+        endTime: new Date(),
+        totalLeads: newLeads.length,
+        successfulExtractions: newLeads.length,
+        failedExtractions: 0,
+        status: 'completed',
+        leads: newLeads
+      };
+      setCurrentSession(newSession);
     }
-  ];
+    
+    setIsExtracting(false);
+    toast.success(`Added ${newLeads.length} new leads to your database!`);
+  };
 
   const startLeadGeneration = async () => {
     if (!analysisResult) {
@@ -151,6 +135,68 @@ Best regards,
       '🤖 Applying spaCy NER for contact extraction...',
       '🎯 Personalizing email content with LLM...',
       '💾 Finalizing lead database...'
+    ];
+
+    // Enhanced mock data for demonstration
+    const mockLeads: CompanyLead[] = [
+      {
+        id: '1',
+        companyName: 'TechCorp Solutions',
+        externalWebsite: 'https://techcorp.com',
+        contactPerson: 'John Smith',
+        role: 'CEO',
+        email: 'john.smith@techcorp.com',
+        phone: '+1 (555) 123-4567',
+        industry: 'Technology',
+        location: 'San Francisco, CA',
+        enrichedSource: true,
+        extractedFrom: analysisResult?.url || 'https://directory.example.com/techcorp',
+        lastUpdated: new Date(),
+        status: 'personalized'
+      },
+      {
+        id: '2',
+        companyName: 'GlobalTrade Inc',
+        externalWebsite: 'https://globaltrade.com',
+        contactPerson: 'Sarah Johnson',
+        role: 'VP Sales',
+        email: 'sarah.johnson@globaltrade.com',
+        industry: 'Import/Export',
+        location: 'New York, NY',
+        enrichedSource: true,
+        extractedFrom: analysisResult?.url || 'https://directory.example.com/globaltrade',
+        lastUpdated: new Date(),
+        status: 'personalized'
+      },
+      {
+        id: '3',
+        companyName: 'Marine Industries Ltd',
+        externalWebsite: 'https://marineindustries.co.uk',
+        contactPerson: 'David Wilson',
+        role: 'Operations Director',
+        email: 'david.wilson@marineindustries.co.uk',
+        phone: '+44 20 7123 4567',
+        industry: 'Marine Services',
+        location: 'London, UK',
+        enrichedSource: true,
+        extractedFrom: analysisResult?.url || 'https://directory.example.com/marine',
+        lastUpdated: new Date(),
+        status: 'enriched'
+      },
+      {
+        id: '4',
+        companyName: 'Financial Advisors Group',
+        externalWebsite: 'https://finadvgroup.com',
+        contactPerson: 'Emma Thompson',
+        role: 'Managing Partner',
+        email: 'emma.thompson@finadvgroup.com',
+        industry: 'Financial Services',
+        location: 'Edinburgh, UK',
+        enrichedSource: true,
+        extractedFrom: analysisResult?.url || 'https://directory.example.com/financial',
+        lastUpdated: new Date(),
+        status: 'extracted'
+      }
     ];
 
     for (let i = 0; i < steps.length; i++) {
@@ -239,7 +285,6 @@ Best regards,
 
   return (
     <div className="space-y-6">
-      {/* Analysis Status */}
       {analysisResult ? (
         <Card className="border-green-200 bg-green-50">
           <CardContent className="pt-6">
@@ -270,263 +315,274 @@ Best regards,
         </Card>
       )}
 
-      {/* Control Panel */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="w-5 h-5" />
-            Lead Generation Control Panel
-          </CardTitle>
-          <CardDescription>
-            Automated B2B lead extraction and enrichment workflow with AI-powered personalization
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-4 items-center">
-            <Button 
-              onClick={startLeadGeneration} 
-              disabled={isRunning || !analysisResult}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Play className="w-4 h-4 mr-2" />
-              {isRunning ? 'Processing...' : 'Start Lead Generation'}
-            </Button>
-            
-            {isRunning && (
-              <Button variant="outline" onClick={() => setIsRunning(false)}>
-                <Pause className="w-4 h-4 mr-2" />
-                Pause
-              </Button>
-            )}
-            
-            <Button 
-              variant="outline" 
-              onClick={exportToCSV}
-              disabled={!currentSession || currentSession.leads.length === 0}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export CSV
-            </Button>
-          </div>
-          
-          {isRunning && (
-            <div className="mt-4">
-              <Label>Processing Progress</Label>
-              <Progress value={progress} className="mt-2" />
-              <p className="text-sm text-gray-600 mt-1">{Math.round(progress)}% complete</p>
+      {analysisResult && (
+        <Tabs defaultValue="navigation">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="navigation" className="flex items-center gap-2">
+              <Navigation className="w-4 h-4" />
+              Page Navigation
+            </TabsTrigger>
+            <TabsTrigger value="email-template">Email Template</TabsTrigger>
+            <TabsTrigger value="enrichment">Enrichment APIs</TabsTrigger>
+            <TabsTrigger value="results">Results ({allLeads.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="navigation" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <PaginationControls
+                baseUrl={analysisResult.url}
+                onPageChange={handlePageChange}
+                onExtractPage={handlePageExtraction}
+                isExtracting={isExtracting}
+              />
+              
+              <RealTimeExtractor
+                url={currentPageUrl || analysisResult.url}
+                onLeadsExtracted={handleLeadsExtracted}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Configuration */}
-      <Tabs defaultValue="email-template">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="email-template">Email Template</TabsTrigger>
-          <TabsTrigger value="enrichment">Enrichment APIs</TabsTrigger>
-          <TabsTrigger value="results">Results</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="email-template">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="w-5 h-5" />
-                Email Personalization Template
-              </CardTitle>
-              <CardDescription>
-                Configure the base email template for AI-powered personalization
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="subject">Email Subject</Label>
-                <Input
-                  id="subject"
-                  value={emailTemplate.subject}
-                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, subject: e.target.value }))}
-                  placeholder="Subject line with [Company Name] variables"
-                />
-              </div>
-              <div>
-                <Label htmlFor="content">Email Content</Label>
-                <Textarea
-                  id="content"
-                  value={emailTemplate.baseContent}
-                  onChange={(e) => setEmailTemplate(prev => ({ ...prev, baseContent: e.target.value }))}
-                  rows={8}
-                  placeholder="Email content with personalization variables like [Company Name], [Contact Person], etc."
-                />
-              </div>
-              <div>
-                <Label>Available Variables</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {emailTemplate.personalizationFields.map((field) => (
-                    <Badge key={field} variant="outline">
-                      [{field}]
-                    </Badge>
-                  ))}
+            {/* Bulk Operations */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Bulk Operations</CardTitle>
+                <CardDescription>
+                  Extract from multiple pages automatically
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-4 items-center">
+                  <Button 
+                    onClick={startLeadGeneration} 
+                    disabled={isRunning}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    {isRunning ? 'Processing...' : 'Extract All Pages (Auto)'}
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={exportToCSV}
+                    disabled={allLeads.length === 0}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export All Leads ({allLeads.length})
+                  </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                
+                {isRunning && (
+                  <div className="mt-4">
+                    <Progress value={progress} />
+                    <p className="text-sm text-gray-600 mt-1">{Math.round(progress)}% complete</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="enrichment">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Data Enrichment APIs
-              </CardTitle>
-              <CardDescription>
-                Pre-configured APIs for enhanced lead discovery (Demo keys included)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="hunter-api">Hunter.io API Key</Label>
-                <Input
-                  id="hunter-api"
-                  type="password"
-                  value={enrichmentConfig.hunterApiKey || ''}
-                  onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, hunterApiKey: e.target.value }))}
-                  placeholder="Demo key pre-configured"
-                />
-                <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
-              </div>
-              <div>
-                <Label htmlFor="clearbit-api">Clearbit API Key</Label>
-                <Input
-                  id="clearbit-api"
-                  type="password"
-                  value={enrichmentConfig.clearbitApiKey || ''}
-                  onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, clearbitApiKey: e.target.value }))}
-                  placeholder="Demo key pre-configured"
-                />
-                <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
-              </div>
-              <div>
-                <Label htmlFor="apollo-api">Apollo API Key</Label>
-                <Input
-                  id="apollo-api"
-                  type="password"
-                  value={enrichmentConfig.apolloApiKey || ''}
-                  onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, apolloApiKey: e.target.value }))}
-                  placeholder="Demo key pre-configured"
-                />
-                <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
-              </div>
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">🤖 AI-Powered Features</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• spaCy NER for extracting names and job titles from website text</li>
-                  <li>• Hunter.io integration for domain-based email discovery</li>
-                  <li>• LLM-powered email personalization for each lead</li>
-                  <li>• Automatic cookie handling and rate limiting</li>
-                  <li>• Fallback strategies for missing contact information</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+          <TabsContent value="email-template">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
+                  Email Personalization Template
+                </CardTitle>
+                <CardDescription>
+                  Configure the base email template for AI-powered personalization
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="subject">Email Subject</Label>
+                  <Input
+                    id="subject"
+                    value={emailTemplate.subject}
+                    onChange={(e) => setEmailTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                    placeholder="Subject line with [Company Name] variables"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="content">Email Content</Label>
+                  <Textarea
+                    id="content"
+                    value={emailTemplate.baseContent}
+                    onChange={(e) => setEmailTemplate(prev => ({ ...prev, baseContent: e.target.value }))}
+                    rows={8}
+                    placeholder="Email content with personalization variables like [Company Name], [Contact Person], etc."
+                  />
+                </div>
+                <div>
+                  <Label>Available Variables</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {emailTemplate.personalizationFields.map((field) => (
+                      <Badge key={field} variant="outline">
+                        [{field}]
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="results">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="w-5 h-5" />
-                Lead Generation Results
-              </CardTitle>
-              <CardDescription>
-                {currentSession ? 
-                  `Session completed: ${currentSession.totalLeads} leads extracted from ${analysisResult?.url}` : 
-                  'No active session'
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {currentSession ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <div className="text-sm text-blue-600">Total Leads</div>
-                      <div className="text-2xl font-bold text-blue-900">{currentSession.totalLeads}</div>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="text-sm text-green-600">Successful</div>
-                      <div className="text-2xl font-bold text-green-900">{currentSession.successfulExtractions}</div>
-                    </div>
-                    <div className="p-3 bg-red-50 rounded-lg">
-                      <div className="text-sm text-red-600">Failed</div>
-                      <div className="text-2xl font-bold text-red-900">{currentSession.failedExtractions}</div>
-                    </div>
-                    <div className="p-3 bg-purple-50 rounded-lg">
-                      <div className="text-sm text-purple-600">Success Rate</div>
-                      <div className="text-2xl font-bold text-purple-900">
-                        {Math.round((currentSession.successfulExtractions / currentSession.totalLeads) * 100)}%
+          <TabsContent value="enrichment">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Data Enrichment APIs
+                </CardTitle>
+                <CardDescription>
+                  Pre-configured APIs for enhanced lead discovery (Demo keys included)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="hunter-api">Hunter.io API Key</Label>
+                  <Input
+                    id="hunter-api"
+                    type="password"
+                    value={enrichmentConfig.hunterApiKey || ''}
+                    onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, hunterApiKey: e.target.value }))}
+                    placeholder="Demo key pre-configured"
+                  />
+                  <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
+                </div>
+                <div>
+                  <Label htmlFor="clearbit-api">Clearbit API Key</Label>
+                  <Input
+                    id="clearbit-api"
+                    type="password"
+                    value={enrichmentConfig.clearbitApiKey || ''}
+                    onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, clearbitApiKey: e.target.value }))}
+                    placeholder="Demo key pre-configured"
+                  />
+                  <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
+                </div>
+                <div>
+                  <Label htmlFor="apollo-api">Apollo API Key</Label>
+                  <Input
+                    id="apollo-api"
+                    type="password"
+                    value={enrichmentConfig.apolloApiKey || ''}
+                    onChange={(e) => setEnrichmentConfig(prev => ({ ...prev, apolloApiKey: e.target.value }))}
+                    placeholder="Demo key pre-configured"
+                  />
+                  <p className="text-xs text-green-600 mt-1">✅ Demo key active for testing</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">🤖 AI-Powered Features</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• spaCy NER for extracting names and job titles from website text</li>
+                    <li>• Hunter.io integration for domain-based email discovery</li>
+                    <li>• LLM-powered email personalization for each lead</li>
+                    <li>• Automatic cookie handling and rate limiting</li>
+                    <li>• Fallback strategies for missing contact information</li>
+                  </ul>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="results">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building className="w-5 h-5" />
+                  All Extracted Leads
+                </CardTitle>
+                <CardDescription>
+                  {allLeads.length > 0 ? 
+                    `Total: ${allLeads.length} leads extracted from ${analysisResult?.url}` : 
+                    'No leads extracted yet'
+                  }
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {allLeads.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="p-3 bg-blue-50 rounded-lg">
+                        <div className="text-sm text-blue-600">Total Leads</div>
+                        <div className="text-2xl font-bold text-blue-900">{allLeads.length}</div>
+                      </div>
+                      <div className="p-3 bg-green-50 rounded-lg">
+                        <div className="text-sm text-green-600">With Contact Info</div>
+                        <div className="text-2xl font-bold text-green-900">
+                          {allLeads.filter(lead => lead.email || lead.phone).length}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-purple-50 rounded-lg">
+                        <div className="text-sm text-purple-600">Enriched</div>
+                        <div className="text-2xl font-bold text-purple-900">
+                          {allLeads.filter(lead => lead.enrichedSource).length}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-orange-50 rounded-lg">
+                        <div className="text-sm text-orange-600">Success Rate</div>
+                        <div className="text-2xl font-bold text-orange-900">
+                          {Math.round((allLeads.filter(lead => lead.email || lead.phone).length / allLeads.length) * 100)}%
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <ScrollArea className="h-96">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Company</TableHead>
-                          <TableHead>Contact</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Phone</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Enriched</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {currentSession.leads.map((lead) => (
-                          <TableRow key={lead.id}>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{lead.companyName}</div>
-                                <div className="text-sm text-gray-600">{lead.industry}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <div className="font-medium">{lead.contactPerson || 'N/A'}</div>
-                                <div className="text-sm text-gray-600">{lead.role || 'N/A'}</div>
-                              </div>
-                            </TableCell>
-                            <TableCell>{lead.email || 'N/A'}</TableCell>
-                            <TableCell>{lead.phone || 'N/A'}</TableCell>
-                            <TableCell>
-                              <Badge className={`${getStatusColor(lead.status)} text-white`}>
-                                {lead.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {lead.enrichedSource ? '✅' : '❌'}
-                            </TableCell>
+                    <ScrollArea className="h-96">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Company</TableHead>
+                            <TableHead>Contact</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Enriched</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-500">No lead generation session active</p>
-                  <p className="text-sm text-gray-400 mt-2">
-                    {analysisResult ? 
-                      'Click "Start Lead Generation" to begin extracting leads' :
-                      'First analyze a website in the Analysis tab, then return here to generate leads'
-                    }
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                        </TableHeader>
+                        <TableBody>
+                          {allLeads.map((lead) => (
+                            <TableRow key={lead.id}>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{lead.companyName}</div>
+                                  <div className="text-sm text-gray-600">{lead.industry}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div>
+                                  <div className="font-medium">{lead.contactPerson || 'N/A'}</div>
+                                  <div className="text-sm text-gray-600">{lead.role || 'N/A'}</div>
+                                </div>
+                              </TableCell>
+                              <TableCell>{lead.email || 'N/A'}</TableCell>
+                              <TableCell>{lead.phone || 'N/A'}</TableCell>
+                              <TableCell>
+                                <Badge className={`${getStatusColor(lead.status)} text-white`}>
+                                  {lead.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {lead.enrichedSource ? '✅' : '❌'}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No leads extracted yet</p>
+                    <p className="text-sm text-gray-400 mt-2">
+                      Use the Page Navigation tab to start extracting companies
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };
