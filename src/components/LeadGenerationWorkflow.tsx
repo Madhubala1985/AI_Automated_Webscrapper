@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Play, Pause, Stop, Settings, Mail, Users, Building } from 'lucide-react';
+import { Download, Play, Pause, Settings, Mail, Users, Building } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompanyLead, ScrapingSession, EmailTemplate, EnrichmentConfig } from '../types/leadGeneration';
 
