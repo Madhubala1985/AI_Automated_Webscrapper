@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, Pause, Square, Globe, Users, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Square, Globe, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompanyLead } from '../types/leadGeneration';
 
@@ -118,8 +117,8 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
 
     try {
       // Initial setup
-      setCurrentStatus('🌐 Initializing automated scraping session...');
-      addLog('Starting FULL website scraping - All pages will be processed automatically');
+      setCurrentStatus('🌐 Initializing fully automated extraction...');
+      addLog('Starting COMPLETE website scraping - ALL pages will be processed automatically');
       addLog(`Target: ${baseUrl}`);
       addLog(`Total pages to process: ${totalPages} (${totalPages * 20} companies expected)`);
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -132,15 +131,13 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       let allLeads: CompanyLead[] = [];
-      let batchNumber = 1;
 
-      // Process ALL pages automatically
+      // Process ALL pages automatically with no user intervention
       for (let page = 1; page <= totalPages && isRunning && !isPaused; page++) {
         setCurrentPage(page);
-        setCurrentStatus(`📋 Auto-extracting page ${page} of ${totalPages}...`);
+        setCurrentStatus(`🔄 Auto-processing page ${page} of ${totalPages}...`);
         
-        const pageUrl = generatePageUrl(page);
-        addLog(`Processing page ${page}/${totalPages}: extracting companies...`);
+        addLog(`🔄 NOW PROCESSING PAGE ${page}/${totalPages} - Extracting companies automatically...`);
 
         try {
           // Simulate page load and extraction time
@@ -152,33 +149,30 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
           
           setTotalExtracted(prev => prev + companies.length);
           setAllExtractedLeads(allLeads);
-          addLog(`✅ Extracted ${companies.length} companies from page ${page} (Total: ${allLeads.length})`);
+          addLog(`✅ Extracted ${companies.length} companies from page ${page} (Running total: ${allLeads.length})`);
 
           // Simulate visiting each company website for enrichment
-          setCurrentStatus(`🔗 Enriching contacts from page ${page}...`);
           const enrichedCount = companies.filter(c => c.enrichedSource).length;
           if (enrichedCount > 0) {
-            addLog(`  └─ Found ${enrichedCount} contacts with email/phone on page ${page}`);
+            addLog(`  📧 Found ${enrichedCount} contacts with email/phone on page ${page}`);
           }
 
           // Update progress
           setProgress((page / totalPages) * 100);
 
-          // Send batch updates every 10 pages or on completion
-          if (page % 10 === 0 || page === totalPages) {
-            const batchLeads = allLeads.slice((batchNumber - 1) * 10 * 20);
-            onLeadsExtracted(batchLeads);
-            addLog(`📦 Batch ${batchNumber} sent: ${batchLeads.length} companies processed`);
-            batchNumber++;
+          // Send batch updates every 10 pages
+          if (page % 10 === 0) {
+            onLeadsExtracted(allLeads);
+            addLog(`📦 Batch update sent: ${allLeads.length} companies processed so far`);
           }
 
           // Rate limiting to avoid getting blocked
           if (page % 50 === 0) {
-            setCurrentStatus('⏳ Taking a break to avoid rate limiting...');
-            addLog('Pausing briefly to avoid detection (smart rate limiting)');
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            setCurrentStatus('⏳ Smart rate limiting - brief pause...');
+            addLog('Pausing briefly to avoid detection (intelligent rate limiting)');
+            await new Promise(resolve => setTimeout(resolve, 3000));
           } else {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 800));
           }
 
           // Progress updates every 25 pages
@@ -192,19 +186,19 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
       }
 
       // Final completion
-      setCurrentStatus('✅ FULL WEBSITE SCRAPING COMPLETED!');
-      addLog(`🎉 Successfully processed ALL ${totalPages} pages`);
+      setCurrentStatus('🎉 COMPLETE WEBSITE EXTRACTION FINISHED!');
+      addLog(`🎉 Successfully processed ALL ${totalPages} pages automatically`);
       addLog(`🏢 Total companies extracted: ${allLeads.length}`);
       addLog(`📧 Companies with contact info: ${allLeads.filter(lead => lead.email || lead.phone).length}`);
       
-      // Send final batch if there are remaining leads
+      // Send final results
       onLeadsExtracted(allLeads);
-      toast.success(`🎉 Full scraping complete! Extracted ${allLeads.length} companies from all ${totalPages} pages`);
+      toast.success(`🎉 Complete extraction finished! ${allLeads.length} companies from all ${totalPages} pages`);
 
     } catch (error) {
-      setCurrentStatus('❌ Scraping failed');
-      addError(`Full scraping failed: ${error}`);
-      toast.error('Full scraping failed. Check the logs for details.');
+      setCurrentStatus('❌ Extraction failed');
+      addError(`Complete extraction failed: ${error}`);
+      toast.error('Complete extraction failed. Check the logs for details.');
     } finally {
       setIsRunning(false);
     }
@@ -212,23 +206,21 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
 
   const pauseScraping = () => {
     setIsPaused(true);
-    setCurrentStatus('⏸️ Scraping paused - will resume from current page');
-    addLog(`Scraping paused by user at page ${currentPage}`);
+    setCurrentStatus('⏸️ Extraction paused - will resume from current page');
+    addLog(`Extraction paused by user at page ${currentPage}`);
   };
 
   const resumeScraping = () => {
     setIsPaused(false);
-    setCurrentStatus('▶️ Resuming automated scraping...');
-    addLog(`Resuming scraping from page ${currentPage}`);
-    // The main loop will continue automatically
+    setCurrentStatus('▶️ Resuming automatic extraction...');
+    addLog(`Resuming extraction from page ${currentPage}`);
   };
 
   const stopScraping = () => {
     setIsRunning(false);
-    setCurrentStatus('⏹️ Scraping stopped by user');
-    addLog(`Scraping stopped by user at page ${currentPage}. Extracted ${totalExtracted} companies so far.`);
+    setCurrentStatus('⏹️ Extraction stopped by user');
+    addLog(`Extraction stopped by user at page ${currentPage}. Extracted ${totalExtracted} companies so far.`);
     
-    // Send whatever we have extracted so far
     if (allExtractedLeads.length > 0) {
       onLeadsExtracted(allExtractedLeads);
       toast.info(`Stopping: ${allExtractedLeads.length} companies extracted and saved`);
@@ -241,20 +233,22 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            Automated Full Website Extraction
+            Complete Website Extraction
           </div>
           <Badge variant="outline">{totalPages} Pages • ~{totalPages * 20} Companies</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Status and Progress */}
+        {/* Current Status and Progress */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium">{currentStatus}</div>
             {isRunning && (
               <div className="flex gap-2">
                 <Badge variant="outline">{totalExtracted} Extracted</Badge>
-                <Badge variant="secondary">Page {currentPage}/{totalPages}</Badge>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  Currently Processing: Page {currentPage}/{totalPages}
+                </Badge>
               </div>
             )}
           </div>
@@ -263,7 +257,7 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
             <>
               <Progress value={progress} />
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Processing page {currentPage} of {totalPages}</span>
+                <span>Auto-processing page {currentPage} of {totalPages}</span>
                 <span>{Math.round(progress)}% complete</span>
               </div>
             </>
@@ -279,7 +273,7 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
               size="lg"
             >
               <Play className="w-4 h-4 mr-2" />
-              Start Automated Full Extraction
+              Start Complete Auto-Extraction
             </Button>
           ) : (
             <>
@@ -315,7 +309,7 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Fully Automated Process:</strong> This will automatically navigate through all {totalPages} pages, handle cookies, extract company data, visit websites for contact enrichment, and process approximately {totalPages * 20} companies without any manual intervention.
+            <strong>Fully Automated Process:</strong> This will automatically process all {totalPages} pages sequentially, handle cookies, extract company data, enrich contacts, and collect approximately {totalPages * 20} companies without any manual intervention.
           </AlertDescription>
         </Alert>
 

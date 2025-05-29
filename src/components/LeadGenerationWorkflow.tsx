@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,11 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Download, Play, Pause, Settings, Mail, Users, Building, Globe, CheckCircle, Navigation } from 'lucide-react';
+import { Download, Mail, Settings, Globe, CheckCircle, Building } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompanyLead, ScrapingSession, EmailTemplate, EnrichmentConfig } from '../types/leadGeneration';
-import PaginationControls from './PaginationControls';
-import RealTimeExtractor from './RealTimeExtractor';
 import FullWebsiteScraper from './FullWebsiteScraper';
 
 interface AnalysisResult {
@@ -48,8 +45,6 @@ interface LeadGenerationWorkflowProps {
 const LeadGenerationWorkflow: React.FC<LeadGenerationWorkflowProps> = ({ analysisResult }) => {
   const [currentSession, setCurrentSession] = useState<ScrapingSession | null>(null);
   const [allLeads, setAllLeads] = useState<CompanyLead[]>([]);
-  const [currentPageUrl, setCurrentPageUrl] = useState<string>('');
-  const [isExtracting, setIsExtracting] = useState(false);
   const [emailTemplate, setEmailTemplate] = useState<EmailTemplate>({
     subject: 'Partnership Opportunity with [Company Name]',
     baseContent: `Hello [Contact Person],
@@ -73,32 +68,16 @@ Best regards,
     enableEmailGeneration: true
   });
 
-  const [isRunning, setIsRunning] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [activeTab, setActiveTab] = useState('navigation');
-
-  const handlePageChange = (url: string, page: number) => {
-    setCurrentPageUrl(url);
-    toast.info(`Ready to extract from page ${page}`);
-  };
-
-  const handlePageExtraction = async (url: string) => {
-    setIsExtracting(true);
-    // The RealTimeExtractor component will handle the actual extraction
-    toast.info('Starting page extraction...');
-  };
+  const [activeTab, setActiveTab] = useState('full-scrape');
 
   const handleLeadsExtracted = (newLeads: CompanyLead[]) => {
-    // Add new leads to the collection
     setAllLeads(prev => {
-      // Filter out duplicates based on ID
       const existingIds = new Set(prev.map(lead => lead.id));
       const uniqueNewLeads = newLeads.filter(lead => !existingIds.has(lead.id));
       
       return [...prev, ...uniqueNewLeads];
     });
     
-    // Update or create session
     if (currentSession) {
       const updatedSession = {
         ...currentSession,
@@ -111,7 +90,7 @@ Best regards,
     } else {
       const newSession: ScrapingSession = {
         id: Date.now().toString(),
-        url: analysisResult?.url || currentPageUrl,
+        url: analysisResult?.url || '',
         startTime: new Date(),
         endTime: new Date(),
         totalLeads: newLeads.length,
@@ -123,7 +102,6 @@ Best regards,
       setCurrentSession(newSession);
     }
     
-    setIsExtracting(false);
     toast.success(`Added ${newLeads.length} new leads to your database!`);
   };
 
@@ -187,7 +165,6 @@ Best regards,
     }
   };
 
-  // Calculate total pages based on Lloyd's directory (4552 companies, ~20 per page)
   const totalPages = analysisResult?.url.includes('ldc.lloyds.com') ? Math.ceil(4552 / 20) : 1000;
 
   return (
@@ -200,7 +177,7 @@ Best regards,
               <div>
                 <p className="font-medium text-green-900">Website Analysis Complete</p>
                 <p className="text-sm text-green-700">
-                  Ready to extract leads from: {analysisResult.url}
+                  Ready to extract ALL leads from: {analysisResult.url}
                 </p>
               </div>
             </div>
@@ -224,14 +201,10 @@ Best regards,
 
       {analysisResult && (
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="navigation" className="flex items-center gap-2">
-              <Navigation className="w-4 h-4" />
-              Page Navigation
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="full-scrape" className="flex items-center gap-2">
               <Globe className="w-4 h-4" />
-              Full Scrape
+              Complete Extraction
             </TabsTrigger>
             <TabsTrigger value="email-template">Email Template</TabsTrigger>
             <TabsTrigger value="enrichment">Enrichment APIs</TabsTrigger>
@@ -239,50 +212,6 @@ Best regards,
               Results <Badge variant="secondary" className="ml-1">{allLeads.length}</Badge>
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="navigation" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PaginationControls
-                baseUrl={analysisResult.url}
-                onPageChange={handlePageChange}
-                onExtractPage={handlePageExtraction}
-                isExtracting={isExtracting}
-              />
-              
-              <RealTimeExtractor
-                url={currentPageUrl || analysisResult.url}
-                onLeadsExtracted={handleLeadsExtracted}
-              />
-            </div>
-
-            {/* Export button */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Manage Extracted Data</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4 items-center">
-                  <Button 
-                    variant="outline" 
-                    onClick={exportToCSV}
-                    disabled={allLeads.length === 0}
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export All Leads ({allLeads.length})
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setAllLeads([])}
-                    disabled={allLeads.length === 0}
-                    className="border-red-200 text-red-600 hover:bg-red-50"
-                  >
-                    Clear All Leads
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="full-scrape">
             <FullWebsiteScraper
@@ -296,7 +225,7 @@ Best regards,
                 <CardContent className="pt-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <h3 className="text-lg font-semibold">Lead Collection Progress</h3>
+                      <h3 className="text-lg font-semibold">Complete Extraction Progress</h3>
                       <p className="text-sm text-gray-500">
                         {allLeads.length} leads collected out of ~4552 available
                       </p>
@@ -511,7 +440,7 @@ Best regards,
                   <div className="text-center py-8">
                     <p className="text-gray-500">No leads extracted yet</p>
                     <p className="text-sm text-gray-400 mt-2">
-                      Use the Page Navigation or Full Scrape tab to start extracting companies
+                      Use the Complete Extraction tab to start the fully automated process
                     </p>
                   </div>
                 )}
