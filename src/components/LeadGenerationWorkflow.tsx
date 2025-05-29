@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { toast } from 'sonner';
 import { CompanyLead, ScrapingSession, EmailTemplate, EnrichmentConfig } from '../types/leadGeneration';
 import PaginationControls from './PaginationControls';
 import RealTimeExtractor from './RealTimeExtractor';
+import FullWebsiteScraper from './FullWebsiteScraper';
 
 interface AnalysisResult {
   url: string;
@@ -73,6 +75,7 @@ Best regards,
 
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [activeTab, setActiveTab] = useState('navigation');
 
   const handlePageChange = (url: string, page: number) => {
     setCurrentPageUrl(url);
@@ -81,11 +84,19 @@ Best regards,
 
   const handlePageExtraction = async (url: string) => {
     setIsExtracting(true);
+    // The RealTimeExtractor component will handle the actual extraction
     toast.info('Starting page extraction...');
   };
 
   const handleLeadsExtracted = (newLeads: CompanyLead[]) => {
-    setAllLeads(prev => [...prev, ...newLeads]);
+    // Add new leads to the collection
+    setAllLeads(prev => {
+      // Filter out duplicates based on ID
+      const existingIds = new Set(prev.map(lead => lead.id));
+      const uniqueNewLeads = newLeads.filter(lead => !existingIds.has(lead.id));
+      
+      return [...prev, ...uniqueNewLeads];
+    });
     
     // Update or create session
     if (currentSession) {
@@ -116,115 +127,8 @@ Best regards,
     toast.success(`Added ${newLeads.length} new leads to your database!`);
   };
 
-  const startLeadGeneration = async () => {
-    if (!analysisResult) {
-      toast.error('Please analyze a website first in the Analysis tab');
-      return;
-    }
-
-    setIsRunning(true);
-    setProgress(0);
-    
-    // Enhanced simulation based on analysis result
-    const steps = [
-      `🌐 Navigating to ${analysisResult.url}...`,
-      '🍪 Handling cookie consent automatically...',
-      `📋 Extracting company listings from ${analysisResult.listingBehavior.containerSelector}...`,
-      '🔗 Visiting company websites for contact details...',
-      '📧 Using Hunter.io API for email discovery...',
-      '🤖 Applying spaCy NER for contact extraction...',
-      '🎯 Personalizing email content with LLM...',
-      '💾 Finalizing lead database...'
-    ];
-
-    // Enhanced mock data for demonstration
-    const mockLeads: CompanyLead[] = [
-      {
-        id: '1',
-        companyName: 'TechCorp Solutions',
-        externalWebsite: 'https://techcorp.com',
-        contactPerson: 'John Smith',
-        role: 'CEO',
-        email: 'john.smith@techcorp.com',
-        phone: '+1 (555) 123-4567',
-        industry: 'Technology',
-        location: 'San Francisco, CA',
-        enrichedSource: true,
-        extractedFrom: analysisResult?.url || 'https://directory.example.com/techcorp',
-        lastUpdated: new Date(),
-        status: 'personalized'
-      },
-      {
-        id: '2',
-        companyName: 'GlobalTrade Inc',
-        externalWebsite: 'https://globaltrade.com',
-        contactPerson: 'Sarah Johnson',
-        role: 'VP Sales',
-        email: 'sarah.johnson@globaltrade.com',
-        industry: 'Import/Export',
-        location: 'New York, NY',
-        enrichedSource: true,
-        extractedFrom: analysisResult?.url || 'https://directory.example.com/globaltrade',
-        lastUpdated: new Date(),
-        status: 'personalized'
-      },
-      {
-        id: '3',
-        companyName: 'Marine Industries Ltd',
-        externalWebsite: 'https://marineindustries.co.uk',
-        contactPerson: 'David Wilson',
-        role: 'Operations Director',
-        email: 'david.wilson@marineindustries.co.uk',
-        phone: '+44 20 7123 4567',
-        industry: 'Marine Services',
-        location: 'London, UK',
-        enrichedSource: true,
-        extractedFrom: analysisResult?.url || 'https://directory.example.com/marine',
-        lastUpdated: new Date(),
-        status: 'enriched'
-      },
-      {
-        id: '4',
-        companyName: 'Financial Advisors Group',
-        externalWebsite: 'https://finadvgroup.com',
-        contactPerson: 'Emma Thompson',
-        role: 'Managing Partner',
-        email: 'emma.thompson@finadvgroup.com',
-        industry: 'Financial Services',
-        location: 'Edinburgh, UK',
-        enrichedSource: true,
-        extractedFrom: analysisResult?.url || 'https://directory.example.com/financial',
-        lastUpdated: new Date(),
-        status: 'extracted'
-      }
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      toast.info(steps[i]);
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      setProgress(((i + 1) / steps.length) * 100);
-    }
-
-    // Create session with results
-    const session: ScrapingSession = {
-      id: Date.now().toString(),
-      url: analysisResult.url,
-      startTime: new Date(Date.now() - 16000),
-      endTime: new Date(),
-      totalLeads: mockLeads.length,
-      successfulExtractions: mockLeads.length,
-      failedExtractions: 0,
-      status: 'completed',
-      leads: mockLeads
-    };
-
-    setCurrentSession(session);
-    setIsRunning(false);
-    toast.success(`🎉 Lead generation completed! Found ${mockLeads.length} leads with contact information.`);
-  };
-
   const exportToCSV = () => {
-    if (!currentSession || currentSession.leads.length === 0) {
+    if (allLeads.length === 0) {
       toast.error('No leads to export');
       return;
     }
@@ -246,7 +150,7 @@ Best regards,
 
     const csvContent = [
       headers.join(','),
-      ...currentSession.leads.map(lead => [
+      ...allLeads.map(lead => [
         `"${lead.companyName}"`,
         `"${lead.externalWebsite || ''}"`,
         `"${lead.contactPerson || ''}"`,
@@ -270,7 +174,7 @@ Best regards,
     a.click();
     window.URL.revokeObjectURL(url);
     
-    toast.success('Leads exported to CSV successfully!');
+    toast.success(`Exported ${allLeads.length} leads to CSV successfully!`);
   };
 
   const getStatusColor = (status: string) => {
@@ -282,6 +186,9 @@ Best regards,
       default: return 'bg-gray-500';
     }
   };
+
+  // Calculate total pages based on Lloyd's directory (4552 companies, ~20 per page)
+  const totalPages = analysisResult?.url.includes('ldc.lloyds.com') ? Math.ceil(4552 / 20) : 1000;
 
   return (
     <div className="space-y-6">
@@ -316,15 +223,21 @@ Best regards,
       )}
 
       {analysisResult && (
-        <Tabs defaultValue="navigation">
-          <TabsList className="grid w-full grid-cols-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="navigation" className="flex items-center gap-2">
               <Navigation className="w-4 h-4" />
               Page Navigation
             </TabsTrigger>
+            <TabsTrigger value="full-scrape" className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              Full Scrape
+            </TabsTrigger>
             <TabsTrigger value="email-template">Email Template</TabsTrigger>
             <TabsTrigger value="enrichment">Enrichment APIs</TabsTrigger>
-            <TabsTrigger value="results">Results ({allLeads.length})</TabsTrigger>
+            <TabsTrigger value="results" className="flex items-center gap-2">
+              Results <Badge variant="secondary" className="ml-1">{allLeads.length}</Badge>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="navigation" className="space-y-6">
@@ -342,25 +255,13 @@ Best regards,
               />
             </div>
 
-            {/* Bulk Operations */}
+            {/* Export button */}
             <Card>
               <CardHeader>
-                <CardTitle>Bulk Operations</CardTitle>
-                <CardDescription>
-                  Extract from multiple pages automatically
-                </CardDescription>
+                <CardTitle>Manage Extracted Data</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-4 items-center">
-                  <Button 
-                    onClick={startLeadGeneration} 
-                    disabled={isRunning}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    {isRunning ? 'Processing...' : 'Extract All Pages (Auto)'}
-                  </Button>
-                  
                   <Button 
                     variant="outline" 
                     onClick={exportToCSV}
@@ -369,16 +270,52 @@ Best regards,
                     <Download className="w-4 h-4 mr-2" />
                     Export All Leads ({allLeads.length})
                   </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setAllLeads([])}
+                    disabled={allLeads.length === 0}
+                    className="border-red-200 text-red-600 hover:bg-red-50"
+                  >
+                    Clear All Leads
+                  </Button>
                 </div>
-                
-                {isRunning && (
-                  <div className="mt-4">
-                    <Progress value={progress} />
-                    <p className="text-sm text-gray-600 mt-1">{Math.round(progress)}% complete</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="full-scrape">
+            <FullWebsiteScraper
+              baseUrl={analysisResult.url}
+              totalPages={totalPages}
+              onLeadsExtracted={handleLeadsExtracted}
+            />
+            
+            {allLeads.length > 0 && (
+              <Card className="mt-4 border-green-200">
+                <CardContent className="pt-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold">Lead Collection Progress</h3>
+                      <p className="text-sm text-gray-500">
+                        {allLeads.length} leads collected out of ~4552 available
+                      </p>
+                    </div>
+                    <Button
+                      onClick={exportToCSV}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export All ({allLeads.length})
+                    </Button>
+                  </div>
+                  <Progress 
+                    value={(allLeads.length / 4552) * 100} 
+                    className="mt-4"
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="email-template">
@@ -434,7 +371,7 @@ Best regards,
                   Data Enrichment APIs
                 </CardTitle>
                 <CardDescription>
-                  Pre-configured APIs for enhanced lead discovery (Demo keys included)
+                  Configure APIs for enhanced lead discovery
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -574,7 +511,7 @@ Best regards,
                   <div className="text-center py-8">
                     <p className="text-gray-500">No leads extracted yet</p>
                     <p className="text-sm text-gray-400 mt-2">
-                      Use the Page Navigation tab to start extracting companies
+                      Use the Page Navigation or Full Scrape tab to start extracting companies
                     </p>
                   </div>
                 )}

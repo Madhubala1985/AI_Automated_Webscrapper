@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, ChevronRight, RotateCcw, Eye, Play } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { toast } from 'sonner';
 
 interface PaginationControlsProps {
@@ -22,15 +23,18 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   isExtracting
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1000); // Will be detected from website
   const [customPage, setCustomPage] = useState('');
   const [currentUrl, setCurrentUrl] = useState(baseUrl);
 
+  // For Lloyd's directory, calculated based on 4552 companies with 20 per page
+  const totalPages = baseUrl.includes('ldc.lloyds.com') ? Math.ceil(4552 / 20) : 1000;
+  const itemsPerPage = 20;
+  
   const generatePageUrl = (page: number) => {
     // For Lloyd's directory, handle pagination parameters
     if (baseUrl.includes('ldc.lloyds.com')) {
       const url = new URL(baseUrl);
-      url.searchParams.set('start', ((page - 1) * 20).toString());
+      url.searchParams.set('start', ((page - 1) * itemsPerPage).toString());
       return url.toString();
     }
     // Generic pagination handling
@@ -61,12 +65,75 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     onExtractPage(currentUrl);
   };
 
-  // Calculate pages for Lloyd's directory (4552 companies, ~20 per page)
-  React.useEffect(() => {
-    if (baseUrl.includes('ldc.lloyds.com')) {
-      setTotalPages(Math.ceil(4552 / 20)); // ~228 pages
+  // Generate pagination items
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxVisiblePages = 5; // Show this many page numbers at once
+    
+    // Always show first page
+    items.push(
+      <PaginationItem key="first">
+        <PaginationLink 
+          isActive={currentPage === 1} 
+          onClick={() => navigateToPage(1)}
+        >
+          1
+        </PaginationLink>
+      </PaginationItem>
+    );
+    
+    // Add ellipsis if needed
+    if (currentPage > maxVisiblePages - 1) {
+      items.push(
+        <PaginationItem key="ellipsis-start">
+          <PaginationEllipsis />
+        </PaginationItem>
+      );
     }
-  }, [baseUrl]);
+    
+    // Add pages around current page
+    const startPage = Math.max(2, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages - 1, currentPage + Math.floor(maxVisiblePages / 2));
+    
+    for (let i = startPage; i <= endPage; i++) {
+      if (i === 1 || i === totalPages) continue; // Skip first and last page as they're added separately
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink 
+            isActive={currentPage === i}
+            onClick={() => navigateToPage(i)}
+          >
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    // Add ellipsis if needed
+    if (currentPage < totalPages - maxVisiblePages + 2) {
+      items.push(
+        <PaginationItem key="ellipsis-end">
+          <PaginationEllipsis />
+        </PaginationItem>
+      );
+    }
+    
+    // Always show last page if we have more than one page
+    if (totalPages > 1) {
+      items.push(
+        <PaginationItem key="last">
+          <PaginationLink 
+            isActive={currentPage === totalPages}
+            onClick={() => navigateToPage(totalPages)}
+          >
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+    
+    return items;
+  };
 
   return (
     <Card>
@@ -115,6 +182,21 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
+
+        {/* Enhanced Pagination */}
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious onClick={() => navigateToPage(currentPage - 1)} disabled={currentPage <= 1} />
+            </PaginationItem>
+            
+            {renderPaginationItems()}
+            
+            <PaginationItem>
+              <PaginationNext onClick={() => navigateToPage(currentPage + 1)} disabled={currentPage >= totalPages} />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
 
         {/* Jump to Page */}
         <div className="flex items-center gap-2">
