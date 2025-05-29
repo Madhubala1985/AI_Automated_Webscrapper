@@ -186,15 +186,33 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
         {/* Enhanced Pagination */}
         <Pagination>
           <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious onClick={() => navigateToPage(currentPage - 1)} disabled={currentPage <= 1} />
-            </PaginationItem>
+            {currentPage > 1 ? (
+              <PaginationItem>
+                <PaginationPrevious onClick={() => navigateToPage(currentPage - 1)} />
+              </PaginationItem>
+            ) : (
+              <PaginationItem>
+                <span className="inline-flex items-center justify-center gap-1 pl-2.5 h-10 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+                  <ChevronLeft className="h-4 w-4" />
+                  <span>Previous</span>
+                </span>
+              </PaginationItem>
+            )}
             
             {renderPaginationItems()}
             
-            <PaginationItem>
-              <PaginationNext onClick={() => navigateToPage(currentPage + 1)} disabled={currentPage >= totalPages} />
-            </PaginationItem>
+            {currentPage < totalPages ? (
+              <PaginationItem>
+                <PaginationNext onClick={() => navigateToPage(currentPage + 1)} />
+              </PaginationItem>
+            ) : (
+              <PaginationItem>
+                <span className="inline-flex items-center justify-center gap-1 pr-2.5 h-10 px-4 py-2 text-sm font-medium text-gray-400 cursor-not-allowed">
+                  <span>Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </span>
+              </PaginationItem>
+            )}
           </PaginationContent>
         </Pagination>
 
