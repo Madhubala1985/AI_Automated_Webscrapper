@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -31,6 +31,8 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
   const [currentStatus, setCurrentStatus] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [allExtractedLeads, setAllExtractedLeads] = useState<CompanyLead[]>([]);
+  const stopRequested = useRef(false);
+  const pauseRequested = useRef(false);
 
   const addLog = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -70,6 +72,8 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
     setLogs([]);
     setErrors([]);
     setAllExtractedLeads([]);
+    stopRequested.current = false;
+    pauseRequested.current = false;
 
     try {
       // Initialize scraper with configuration
@@ -87,7 +91,25 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
       let failedPages = 0;
 
       // Process pages sequentially to avoid rate limiting
-      for (let page = 1; page <= totalPages && isRunning && !isPaused; page++) {
+      for (let page = 1; page <= totalPages; page++) {
+        // Check for stop/pause requests
+        if (stopRequested.current) {
+          addLog(`🛑 Scraping stopped by user at page ${page}`);
+          break;
+        }
+
+        if (pauseRequested.current) {
+          setCurrentStatus('⏸️ Scraping paused');
+          addLog(`⏸️ Scraping paused at page ${page}`);
+          // Wait for resume
+          while (pauseRequested.current && !stopRequested.current) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          if (stopRequested.current) break;
+          setCurrentStatus('▶️ Resuming scraping...');
+          addLog(`▶️ Resuming scraping from page ${page}`);
+        }
+
         setCurrentPage(page);
         setCurrentStatus(`🔍 AI analyzing page ${page}/${totalPages}...`);
         
@@ -114,9 +136,6 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
           if (extractedCompanies.length === 0) {
             addLog(`⚠️ No companies found on page ${page} - trying alternative extraction methods`);
             failedPages++;
-            
-            // Try alternative extraction if no companies found
-            // This is where AI would adapt its strategy
             continue;
           }
 
@@ -196,22 +215,25 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
       toast.error('Scraping failed. Check logs for details.');
     } finally {
       setIsRunning(false);
+      stopRequested.current = false;
+      pauseRequested.current = false;
     }
   };
 
   const pauseScraping = () => {
+    pauseRequested.current = true;
     setIsPaused(true);
-    setCurrentStatus('⏸️ Scraping paused');
-    addLog(`Scraping paused at page ${currentPage}`);
+    addLog(`Pause requested at page ${currentPage}`);
   };
 
   const resumeScraping = () => {
+    pauseRequested.current = false;
     setIsPaused(false);
-    setCurrentStatus('▶️ Resuming scraping...');
-    addLog(`Resuming from page ${currentPage}`);
+    addLog(`Resume requested from page ${currentPage}`);
   };
 
   const stopScraping = () => {
+    stopRequested.current = true;
     setIsRunning(false);
     setCurrentStatus('⏹️ Scraping stopped');
     addLog(`Scraping stopped at page ${currentPage}. Total extracted: ${totalExtracted}`);
