@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Play, Pause, Square, Globe, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Square, Globe, CheckCircle, AlertTriangle, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { CompanyLead } from '../types/leadGeneration';
 import { WebScraper, createScrapingConfig, ExtractedCompany } from '../utils/webScraper';
@@ -31,6 +30,8 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
   const [currentStatus, setCurrentStatus] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
   const [allExtractedLeads, setAllExtractedLeads] = useState<CompanyLead[]>([]);
+  const [deepExtractionProgress, setDeepExtractionProgress] = useState({ current: 0, total: 0 });
+  const [currentlyProcessing, setCurrentlyProcessing] = useState('');
   const stopRequested = useRef(false);
   const pauseRequested = useRef(false);
 
@@ -72,27 +73,30 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
     setLogs([]);
     setErrors([]);
     setAllExtractedLeads([]);
+    setDeepExtractionProgress({ current: 0, total: 0 });
+    setCurrentlyProcessing('');
     stopRequested.current = false;
     pauseRequested.current = false;
 
     try {
-      // Initialize scraper with configuration
+      // Initialize scraper with enhanced configuration
       const scrapingConfig = createScrapingConfig(baseUrl);
       const scraper = new WebScraper(scrapingConfig);
 
-      setCurrentStatus('🤖 AI-powered web scraper initializing...');
-      addLog('=== REAL WEB SCRAPING STARTED ===');
+      setCurrentStatus('🤖 AI-powered deep web scraper initializing...');
+      addLog('=== ENHANCED DEEP WEB SCRAPING STARTED ===');
       addLog(`Target: ${baseUrl}`);
-      addLog(`Intelligent extraction for ${totalPages} pages`);
-      addLog('Using AI-powered DOM analysis and pattern recognition');
+      addLog(`Deep extraction for ${totalPages} pages with contact enrichment`);
+      addLog('Using AI-powered DOM analysis, website visiting, and contact extraction');
 
       let allLeads: CompanyLead[] = [];
       let successfulPages = 0;
       let failedPages = 0;
+      let totalCompaniesForDeepExtraction: ExtractedCompany[] = [];
 
-      // Process pages sequentially to avoid rate limiting
+      // Phase 1: Extract basic company information from directory pages
+      addLog('📋 PHASE 1: Extracting company listings from directory');
       for (let page = 1; page <= totalPages; page++) {
-        // Check for stop/pause requests
         if (stopRequested.current) {
           addLog(`🛑 Scraping stopped by user at page ${page}`);
           break;
@@ -101,7 +105,6 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         if (pauseRequested.current) {
           setCurrentStatus('⏸️ Scraping paused');
           addLog(`⏸️ Scraping paused at page ${page}`);
-          // Wait for resume
           while (pauseRequested.current && !stopRequested.current) {
             await new Promise(resolve => setTimeout(resolve, 500));
           }
@@ -111,13 +114,12 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         }
 
         setCurrentPage(page);
-        setCurrentStatus(`🔍 AI analyzing page ${page}/${totalPages}...`);
+        setCurrentStatus(`🔍 AI analyzing directory page ${page}/${totalPages}...`);
         
         try {
           const pageUrl = scraper.generatePageUrl(page);
-          addLog(`🌐 Fetching page ${page}: ${pageUrl}`);
+          addLog(`🌐 Fetching directory page ${page}: ${pageUrl}`);
 
-          // Fetch page content
           setCurrentStatus(`📥 Downloading page ${page} content...`);
           const htmlContent = await scraper.fetchPageContent(pageUrl);
           
@@ -130,89 +132,126 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
           setCurrentStatus(`🤖 AI extracting companies from page ${page}...`);
           addLog(`🔍 AI analyzing DOM structure on page ${page}`);
 
-          // Extract companies using AI-powered scraping
           const extractedCompanies = await scraper.extractCompaniesFromHTML(htmlContent, pageUrl);
           
           if (extractedCompanies.length === 0) {
-            addLog(`⚠️ No companies found on page ${page} - trying alternative extraction methods`);
+            addLog(`⚠️ No companies found on page ${page}`);
             failedPages++;
             continue;
           }
 
-          // Convert to CompanyLead format
-          const leads = extractedCompanies.map(convertExtractedToLead);
-          allLeads = [...allLeads, ...leads];
+          // Add to collection for deep extraction
+          totalCompaniesForDeepExtraction = [...totalCompaniesForDeepExtraction, ...extractedCompanies];
           
-          setTotalExtracted(prev => prev + leads.length);
-          setAllExtractedLeads(allLeads);
-          
-          addLog(`✅ Page ${page}: Extracted ${leads.length} companies (Total: ${allLeads.length})`);
-          
-          // Log contact enrichment success
-          const enrichedCount = leads.filter(lead => lead.enrichedSource).length;
-          if (enrichedCount > 0) {
-            addLog(`  📧 Found ${enrichedCount} companies with contact information`);
-          }
-
+          addLog(`✅ Page ${page}: Found ${extractedCompanies.length} companies (Total: ${totalCompaniesForDeepExtraction.length})`);
           successfulPages++;
 
-          // Update progress
-          setProgress((page / totalPages) * 100);
+          // Update progress for phase 1
+          setProgress((page / totalPages) * 50); // First 50% for directory extraction
 
-          // Send incremental updates
-          if (page % 5 === 0 || leads.length > 0) {
-            onLeadsExtracted(allLeads);
-            addLog(`📊 Progress update: ${allLeads.length} companies collected`);
-          }
+          // Rate limiting
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
-          // Smart rate limiting
-          if (page % 10 === 0) {
-            setCurrentStatus(`⏳ Smart rate limiting (page ${page})...`);
-            addLog(`🛡️ Applying intelligent rate limiting after page ${page}`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          } else {
-            // Shorter delay between pages
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-
-          // Progress notifications
           if (page % 25 === 0) {
-            toast.success(`Progress: ${page}/${totalPages} pages • ${allLeads.length} companies found`);
+            toast.info(`Directory scan: ${page}/${totalPages} pages • ${totalCompaniesForDeepExtraction.length} companies found`);
           }
 
         } catch (error) {
           const errorMsg = `Failed to process page ${page}: ${error instanceof Error ? error.message : 'Unknown error'}`;
           addError(errorMsg);
           failedPages++;
-          
-          // Continue with next page instead of stopping
           continue;
         }
       }
 
+      // Phase 2: Deep extraction from individual company websites
+      if (totalCompaniesForDeepExtraction.length > 0 && !stopRequested.current) {
+        addLog('🔍 PHASE 2: Deep extraction from company websites');
+        addLog(`📧 Visiting ${totalCompaniesForDeepExtraction.length} company websites for contact extraction`);
+        
+        setDeepExtractionProgress({ current: 0, total: totalCompaniesForDeepExtraction.length });
+        
+        for (let i = 0; i < totalCompaniesForDeepExtraction.length; i++) {
+          if (stopRequested.current) break;
+          
+          if (pauseRequested.current) {
+            setCurrentStatus('⏸️ Deep extraction paused');
+            while (pauseRequested.current && !stopRequested.current) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            if (stopRequested.current) break;
+          }
+
+          const company = totalCompaniesForDeepExtraction[i];
+          setCurrentlyProcessing(company.companyName);
+          setCurrentStatus(`🌐 Visiting ${company.companyName} website for contact details... (${i + 1}/${totalCompaniesForDeepExtraction.length})`);
+          
+          try {
+            // Perform deep extraction
+            const enrichedCompany = await scraper.performDeepExtraction(company);
+            
+            // Convert to lead and add to results
+            const lead = convertExtractedToLead(enrichedCompany);
+            allLeads.push(lead);
+            
+            setTotalExtracted(allLeads.length);
+            setDeepExtractionProgress({ current: i + 1, total: totalCompaniesForDeepExtraction.length });
+            
+            // Log enrichment results
+            if (enrichedCompany.email || enrichedCompany.phone) {
+              addLog(`✅ ${company.companyName}: Found contact info - Email: ${!!enrichedCompany.email}, Phone: ${!!enrichedCompany.phone}`);
+            } else {
+              addLog(`ℹ️ ${company.companyName}: No contact info found on website`);
+            }
+            
+            // Update progress (50% for directory + 50% for deep extraction)
+            setProgress(50 + ((i + 1) / totalCompaniesForDeepExtraction.length) * 50);
+            
+            // Send incremental updates
+            if ((i + 1) % 10 === 0) {
+              setAllExtractedLeads([...allLeads]);
+              onLeadsExtracted([...allLeads]);
+              const enrichedCount = allLeads.filter(lead => lead.enrichedSource).length;
+              addLog(`📊 Progress: ${i + 1}/${totalCompaniesForDeepExtraction.length} websites visited, ${enrichedCount} with contact info`);
+            }
+            
+            // Smart rate limiting for website visits
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+          } catch (error) {
+            addLog(`❌ Failed to extract from ${company.companyName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+      }
+
       // Final results
-      setCurrentStatus('🎉 Real web scraping completed!');
-      addLog('=== SCRAPING COMPLETED ===');
-      addLog(`✅ Successfully processed ${successfulPages} pages`);
-      addLog(`❌ Failed pages: ${failedPages}`);
-      addLog(`🏢 Total companies extracted: ${allLeads.length}`);
-      addLog(`📧 Companies with contact info: ${allLeads.filter(lead => lead.enrichedSource).length}`);
-      addLog(`📊 Success rate: ${Math.round((successfulPages / totalPages) * 100)}%`);
+      setCurrentStatus('🎉 Deep web scraping completed!');
+      setCurrentlyProcessing('');
+      addLog('=== DEEP SCRAPING COMPLETED ===');
+      addLog(`✅ Successfully processed ${successfulPages} directory pages`);
+      addLog(`❌ Failed directory pages: ${failedPages}`);
+      addLog(`🏢 Total companies found: ${allLeads.length}`);
+      addLog(`📧 Companies with email: ${allLeads.filter(lead => lead.email).length}`);
+      addLog(`📞 Companies with phone: ${allLeads.filter(lead => lead.phone).length}`);
+      addLog(`🎯 Total enriched companies: ${allLeads.filter(lead => lead.enrichedSource).length}`);
+      addLog(`📊 Enrichment rate: ${Math.round((allLeads.filter(lead => lead.enrichedSource).length / allLeads.length) * 100)}%`);
       
       // Send final results
       if (allLeads.length > 0) {
+        setAllExtractedLeads(allLeads);
         onLeadsExtracted(allLeads);
-        toast.success(`🎉 Scraping complete! Found ${allLeads.length} companies from ${successfulPages} pages`);
+        const enrichedCount = allLeads.filter(lead => lead.enrichedSource).length;
+        toast.success(`🎉 Deep scraping complete! Found ${allLeads.length} companies, ${enrichedCount} with contact details`);
       } else {
-        toast.error('No companies were extracted. The website structure may have changed or be protected.');
+        toast.error('No companies were extracted. The website may be protected or structure changed.');
         addError('No data extracted - website may be protected or structure changed');
       }
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
-      setCurrentStatus('❌ Scraping failed');
+      setCurrentStatus('❌ Deep scraping failed');
       addError(`Complete scraping failed: ${errorMsg}`);
-      toast.error('Scraping failed. Check logs for details.');
+      toast.error('Deep scraping failed. Check logs for details.');
     } finally {
       setIsRunning(false);
       stopRequested.current = false;
@@ -250,10 +289,10 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Globe className="w-5 h-5" />
-            AI Web Scraper
+            AI Deep Web Scraper
           </div>
           <Badge variant="outline" className="bg-blue-50 text-blue-700">
-            Real Website Extraction
+            Website + Contact Extraction
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -272,11 +311,24 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
             )}
           </div>
           
+          {/* Currently Processing Company */}
+          {currentlyProcessing && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <Eye className="w-4 h-4" />
+              <span>Visiting: {currentlyProcessing}</span>
+            </div>
+          )}
+          
           {isRunning && (
             <>
               <Progress value={progress} />
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Processing page {currentPage} of {totalPages}</span>
+                <span>
+                  {deepExtractionProgress.total > 0 
+                    ? `Deep extraction: ${deepExtractionProgress.current}/${deepExtractionProgress.total}`
+                    : `Processing page ${currentPage} of ${totalPages}`
+                  }
+                </span>
                 <span>{Math.round(progress)}% complete</span>
               </div>
             </>
@@ -292,7 +344,7 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
               size="lg"
             >
               <Play className="w-4 h-4 mr-2" />
-              Start AI Web Scraping
+              Start Deep AI Scraping
             </Button>
           ) : (
             <>
@@ -315,32 +367,38 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
           )}
         </div>
 
-        {/* Information Alert */}
+        {/* Enhanced Information Alert */}
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>AI-Powered Extraction:</strong> This scraper uses intelligent DOM analysis, pattern recognition, and adaptive extraction methods to find companies on any business directory website.
+            <strong>Deep AI Extraction:</strong> This scraper visits each company's website to extract contact details (emails, phones) and works with any B2B directory or business platform.
           </AlertDescription>
         </Alert>
 
-        {/* Real-time Stats */}
+        {/* Enhanced Real-time Stats */}
         {totalExtracted > 0 && (
-          <div className="grid grid-cols-3 gap-4 p-4 bg-green-50 rounded-lg">
+          <div className="grid grid-cols-4 gap-3 p-4 bg-green-50 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{totalExtracted}</div>
-              <div className="text-sm text-green-500">Companies Found</div>
+              <div className="text-xl font-bold text-green-600">{totalExtracted}</div>
+              <div className="text-xs text-green-500">Companies Found</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">
+              <div className="text-xl font-bold text-blue-600">
+                {allExtractedLeads.filter(lead => lead.email).length}
+              </div>
+              <div className="text-xs text-blue-500">With Email</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-orange-600">
+                {allExtractedLeads.filter(lead => lead.phone).length}
+              </div>
+              <div className="text-xs text-orange-500">With Phone</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xl font-bold text-purple-600">
                 {allExtractedLeads.filter(lead => lead.enrichedSource).length}
               </div>
-              <div className="text-sm text-blue-500">With Contacts</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
-                {Math.round(((currentPage - 1) / totalPages) * 100)}%
-              </div>
-              <div className="text-sm text-purple-500">Progress</div>
+              <div className="text-xs text-purple-500">Enriched</div>
             </div>
           </div>
         )}
@@ -349,7 +407,7 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         {logs.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium">Live Extraction Log</h4>
+              <h4 className="text-sm font-medium">Live Deep Extraction Log</h4>
               <Badge variant="outline">{logs.length} entries</Badge>
             </div>
             <ScrollArea className="h-40 border rounded p-2 bg-gray-50">
