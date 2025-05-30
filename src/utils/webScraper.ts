@@ -377,7 +377,7 @@ export class WebScraper {
     
     for (const selector of nameSelectors) {
       const elements = doc.querySelectorAll(selector);
-      elements.forEach((element, (index: number) => {
+      elements.forEach((element, index: number) => {
         const text = element.textContent?.trim();
         if (text && text.length > 2 && text.length < 100) {
           companies.push({
