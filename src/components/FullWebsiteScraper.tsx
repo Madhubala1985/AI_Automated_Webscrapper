@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -164,7 +165,22 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
         }
       }
 
-      // Phase 2: Deep extraction from individual company websites
+      // Convert collected companies to leads even if stopping early
+      if (totalCompaniesForDeepExtraction.length > 0) {
+        addLog(`📊 Converting ${totalCompaniesForDeepExtraction.length} companies to leads`);
+        
+        // Convert basic companies to leads first
+        const basicLeads = totalCompaniesForDeepExtraction.map(convertExtractedToLead);
+        allLeads = [...basicLeads];
+        setTotalExtracted(allLeads.length);
+        setAllExtractedLeads(allLeads);
+        
+        // Send initial results immediately
+        onLeadsExtracted(allLeads);
+        addLog(`✅ Initial extraction complete: ${allLeads.length} companies converted to leads`);
+      }
+
+      // Phase 2: Deep extraction from individual company websites (only if not stopped)
       if (totalCompaniesForDeepExtraction.length > 0 && !stopRequested.current) {
         addLog('🔍 PHASE 2: Deep extraction from company websites');
         addLog(`📧 Visiting ${totalCompaniesForDeepExtraction.length} company websites for contact extraction`);
@@ -190,9 +206,12 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
             // Perform deep extraction
             const enrichedCompany = await scraper.performDeepExtraction(company);
             
-            // Convert to lead and add to results
-            const lead = convertExtractedToLead(enrichedCompany);
-            allLeads.push(lead);
+            // Update the corresponding lead in allLeads array
+            const leadIndex = allLeads.findIndex(lead => lead.companyName === enrichedCompany.companyName);
+            if (leadIndex !== -1) {
+              const updatedLead = convertExtractedToLead(enrichedCompany);
+              allLeads[leadIndex] = updatedLead;
+            }
             
             setTotalExtracted(allLeads.length);
             setDeepExtractionProgress({ current: i + 1, total: totalCompaniesForDeepExtraction.length });
@@ -234,7 +253,10 @@ const FullWebsiteScraper: React.FC<FullWebsiteScraperProps> = ({
       addLog(`📧 Companies with email: ${allLeads.filter(lead => lead.email).length}`);
       addLog(`📞 Companies with phone: ${allLeads.filter(lead => lead.phone).length}`);
       addLog(`🎯 Total enriched companies: ${allLeads.filter(lead => lead.enrichedSource).length}`);
-      addLog(`📊 Enrichment rate: ${Math.round((allLeads.filter(lead => lead.enrichedSource).length / allLeads.length) * 100)}%`);
+      
+      if (allLeads.length > 0) {
+        addLog(`📊 Enrichment rate: ${Math.round((allLeads.filter(lead => lead.enrichedSource).length / allLeads.length) * 100)}%`);
+      }
       
       // Send final results
       if (allLeads.length > 0) {
